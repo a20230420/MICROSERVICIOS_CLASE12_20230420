@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Microservicios — Guía offline de Clase 12</title>
+<style>
+:root{color-scheme:light;--ink:#192b3b;--accent:#087b6a;--soft:#e8f5f1}
+*{box-sizing:border-box}body{margin:0;background:#f4f7f9;color:var(--ink);font:17px/1.65 system-ui,sans-serif}
+header{background:#173c4b;color:white;padding:44px max(24px,calc((100vw - 1040px)/2))}header p{max-width:820px}header a{color:#a2f4d8}
+nav{position:sticky;top:0;background:white;border-bottom:1px solid #ccd8df;padding:14px 24px;display:flex;gap:24px;flex-wrap:wrap;z-index:1;font-size:15px}
+main{max-width:1100px;margin:32px auto;padding:0 24px}article{background:white;border:1px solid #dce5e9;border-radius:14px;padding:36px;margin-bottom:30px;scroll-margin-top:95px}
+h1,h2,h3{line-height:1.25;color:#123c49}h1{font-size:32px}h2{font-size:24px;margin-top:36px;overflow-wrap:anywhere}h3{font-size:20px}header h1{color:white;font-size:38px}
+a{color:#006b63;text-decoration-thickness:1px;text-underline-offset:3px}code{font-family:Consolas,monospace;font-size:.9em;background:var(--soft);padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:#142c38;color:#e5f6f5;border-radius:9px;padding:20px;overflow:auto;font-size:15px;line-height:1.5;tab-size:4}pre code{background:transparent;padding:0;overflow-wrap:normal}
+table{border-collapse:collapse;width:100%;display:block;overflow:auto;font-size:15px}th,td{padding:10px 14px;border:1px solid #d9e3e8;text-align:left;vertical-align:top}th{background:var(--soft)}li{margin:9px 0}
+.note{background:#e8f5f1;padding:14px 20px;border-left:4px solid var(--accent)}
+@media(max-width:650px){body{font-size:16px}article{padding:20px}header h1{font-size:30px}nav{position:static;gap:14px}main{padding:0 12px}}
+@media print{nav{position:static}body{background:white}article{border:0;padding:0;break-before:page}pre{white-space:pre-wrap;overflow-wrap:anywhere;color:black;background:#f0f4f5}a{color:inherit}}
+</style></head><body id="inicio"><header><h1>Microservicios, paso a paso</h1><p>Clase 12 · Java 17 · Eureka · OpenFeign. Guía, diagnóstico y código completo reunidos en un archivo consultable sin internet.</p><p>Ejemplo local: Hello 8001 · Addition 8010 · Calculator 8020 · Eureka 8761</p></header>
+<nav><a href="#parte-0">Inicio y comandos</a><a href="#parte-1">Aprender desde cero</a><a href="#parte-2">Si no compila</a><a href="#parte-3">Código por archivo</a></nav>
+<main><p class="note">Puedes estudiar esta guía sin conexión. La primera descarga de dependencias necesita internet. Las direcciones localhost requieren iniciar los servicios.</p><article id="parte-0"><h1>Microservicios básicos — Clase 12</h1>
+<p>Ejemplo de estudio en Java basado en los cuatro repositorios de la clase: Eureka Server, Hello, Addition y Calculator. Cada servicio corre como una aplicación independiente. Calculator realiza una llamada HTTP a Addition usando OpenFeign y encuentra su dirección mediante Eureka.</p>
+<h2>Abrir y ejecutar en Windows</h2>
+<p>Necesitas <strong>JDK 17</strong> e internet la primera vez para descargar Maven y las dependencias. No necesitas instalar Maven por separado.</p>
+<p>Abre una terminal dentro de esta carpeta, donde están <code>pom.xml</code> e <code>iniciar.cmd</code>:</p>
+<pre><code class="language-powershell">java -version
+.\iniciar.cmd
+</code></pre>
+<p>Espera el mensaje <code>LISTO</code>. La primera ejecución puede tardar varios minutos por las descargas. Los servicios se ejecutan en segundo plano y escriben sus mensajes en <code>.run/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Aplicación</th>
+<th align="right">Puerto</th>
+<th>Abrir en el navegador</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Eureka: directorio de servicios</td>
+<td align="right">8761</td>
+<td><a href="http://localhost:8761">http://localhost:8761</a></td>
+</tr>
+<tr>
+<td>Hello: saludo</td>
+<td align="right">8001</td>
+<td><a href="http://localhost:8001/greeting">http://localhost:8001/greeting</a></td>
+</tr>
+<tr>
+<td>Addition: suma</td>
+<td align="right">8010</td>
+<td><a href="http://localhost:8010/addition/1/5">http://localhost:8010/addition/1/5</a></td>
+</tr>
+<tr>
+<td>Calculator: pide la suma a Addition</td>
+<td align="right">8020</td>
+<td><a href="http://localhost:8020/addcalculator/1/5">http://localhost:8020/addcalculator/1/5</a></td>
+</tr>
+</tbody></table>
+<p>Calculator debe mostrar: <code>Calculator : (1 + 5) = 6</code>.</p>
+<pre><code class="language-powershell">.\probar.cmd
+.\detener.cmd
+</code></pre>
+<p><code>probar.cmd</code> comprueba salud, registro, operaciones y una entrada inválida. <code>detener.cmd</code> detiene únicamente los procesos que inició este proyecto. Cerrar la terminal no detiene los servicios.</p>
+<h2>Cómo se relacionan</h2>
+<pre><code class="language-mermaid">flowchart LR
+    U[Navegador o futura app Android] --&gt;|GET /addcalculator/1/5| C[Calculator :8020]
+    C --&gt;|Consulta el registro| E[Eureka :8761]
+    C --&gt;|HTTP con Feign| A[Addition :8010]
+    A -. Se registra .-&gt; E
+    C -. Se registra .-&gt; E
+    H[Hello :8001] -. Se registra .-&gt; E
+</code></pre>
+<p>Eureka mantiene el directorio; la petición de suma viaja directamente entre Calculator y Addition. Hello es un ejemplo adicional independiente.</p>
+<h2>Versiones fijadas</h2>
+<table>
+<thead>
+<tr>
+<th>Herramienta</th>
+<th>Versión</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Java para compilar y ejecutar</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Spring Boot</td>
+<td>4.0.9</td>
+</tr>
+<tr>
+<td>Spring Cloud</td>
+<td>2025.1.4</td>
+</tr>
+<tr>
+<td>Maven Wrapper</td>
+<td>3.3.4</td>
+</tr>
+<tr>
+<td>Maven descargado por el wrapper</td>
+<td>3.9.11, con SHA-256</td>
+</tr>
+</tbody></table>
+<p>Los repositorios de clase consultados declaran Boot 4.1.2 y Cloud 2025.1.4. Aquí se ajustó Boot a 4.0.x, la familia compatible con Cloud 2025.1 según la <a href="https://github.com/spring-cloud/spring-cloud-release/wiki/Supported-Versions">tabla oficial de Spring</a>. No se desactivó la verificación de compatibilidad.</p>
+<p>Se añadió LoadBalancer explícitamente para descubrir Addition con Feign, se fijó la URL local del registro, y los fallos del proveedor devuelven HTTP 503. Se mantuvieron los puertos y rutas del material de clase. El <code>spring-boot-starter-webmvc</code> corresponde a Spring Boot 4.</p>
+<h2>Estudiar o abrir en un IDE</h2>
+<ul>
+<li><strong>Guía desde cero:</strong> <a href="#parte-1">docs/GUIA_DESDE_CERO.md</a>.</li>
+<li><strong>Guía y código consultables sin internet:</strong> <a href="#inicio">docs/GUIA_OFFLINE.html</a>. Ábrelo con doble clic.</li>
+<li><strong>Referencia de archivos:</strong> <a href="#parte-3">docs/REFERENCIA_CODIGO.md</a>.</li>
+<li><strong>Peticiones HTTP:</strong> <a href="../peticiones.http">peticiones.http</a>, para IntelliJ o un cliente REST.</li>
+<li><strong>Contexto para resolver compilación en otra PC:</strong> <a href="#parte-2">CONTEXTO_COMPILACION.md</a>.</li>
+</ul>
+<p>En IntelliJ IDEA abre <strong>la carpeta completa o el <code>pom.xml</code> raíz</strong>, impórtalo como Maven y selecciona JDK 17. No abras solamente un módulo. También puedes ejecutarlo desde terminal sin IDE.</p>
+<p>Este proyecto es un backend de práctica. La aplicación Android de Lab6 y su Firebase continúan siendo proyectos separados. Android 14 indica la versión del dispositivo; aquí la configuración de compilación depende de Java, Maven, Boot y Cloud.</p>
+<h2>Compilar sin iniciar</h2>
+<pre><code class="language-powershell">.\mvnw.cmd -B -ntp verify
+</code></pre>
+<p>El resultado correcto termina en <code>BUILD SUCCESS</code>. Se incluyen cinco pruebas unitarias; la comprobación HTTP requiere los cuatro procesos encendidos. Después de compilar, <code>iniciar.cmd -SinCompilar</code> permite arrancar sin repetir la compilación.</p>
+<h2>Referencias del curso</h2>
+<ul>
+<li><a href="https://github.com/2026-2-1TEL05-AppsIot/Clase12_EurekaServer">Clase12_EurekaServer</a></li>
+<li><a href="https://github.com/2026-2-1TEL05-AppsIot/Clase12_EurekaClient_Hello">Clase12_EurekaClient_Hello</a></li>
+<li><a href="https://github.com/2026-2-1TEL05-AppsIot/Clase12_EurekaClient_Addition">Clase12_EurekaClient_Addition</a></li>
+<li><a href="https://github.com/2026-2-1TEL05-AppsIot/Clase12_EurekaClient_Calculator">Clase12_EurekaClient_Calculator</a></li>
+<li>PDF proporcionado: «Clase 12 - Introducción a los microservicios_25años».</li>
+<li><a href="https://docs.spring.io/spring-cloud-openfeign/reference/spring-cloud-openfeign.html">Documentación oficial de OpenFeign</a>.</li>
+</ul>
+<p>Los scripts <code>mvnw</code> y <code>mvnw.cmd</code> son Apache Maven Wrapper y conservan sus avisos de licencia Apache 2.0. El código del ejemplo se redactó para estudiar las mismas ideas de clase.</p>
+</article>
+<article id="parte-1"><h1>Guía de microservicios desde cero</h1>
+<h2>1. Qué estás ejecutando</h2>
+<p>Un servicio es una aplicación que recibe peticiones y devuelve respuestas. En este ejemplo se ejecutan cuatro aplicaciones Java separadas, cada una con su puerto. Puedes apagar Addition y Hello seguirá respondiendo. Calculator seguirá encendido, pero no podrá completar una suma porque depende de Addition.</p>
+<table>
+<thead>
+<tr>
+<th>Nombre</th>
+<th>Trabajo</th>
+<th>Archivo principal</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Eureka</td>
+<td>Guardar qué servicios están disponibles y dónde</td>
+<td><code>EurekaServerApplication.java</code></td>
+</tr>
+<tr>
+<td>Hello</td>
+<td>Responder un saludo</td>
+<td><code>HelloController.java</code></td>
+</tr>
+<tr>
+<td>Addition</td>
+<td>Hacer la suma</td>
+<td><code>AdditionController.java</code></td>
+</tr>
+<tr>
+<td>Calculator</td>
+<td>Recibir la solicitud y pedirle el resultado a Addition</td>
+<td><code>CalculatorController.java</code>, <code>AdditionClient.java</code></td>
+</tr>
+</tbody></table>
+<p>Puedes tener los cuatro procesos en una PC para practicar. Separar procesos y responsabilidades es lo que demuestra este ejemplo; no necesitas cuatro computadoras.</p>
+<h2>2. Lo que significan REST, endpoint y GET</h2>
+<p>Un endpoint es una combinación de método HTTP y ruta que atiende el servidor. Al abrir <code>http://localhost:8010/addition/1/5</code> en el navegador haces un GET. <code>localhost</code> es tu propia PC; <code>8010</code> selecciona Addition; <code>/addition/1/5</code> identifica la operación y sus dos valores.</p>
+<table>
+<thead>
+<tr>
+<th>Método</th>
+<th>Uso habitual</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GET</td>
+<td>Consultar</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>Crear o enviar una operación con datos</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>Actualizar o reemplazar un recurso</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>Eliminar</td>
+</tr>
+</tbody></table>
+<p>La suma usa GET como en clase. Una app que guarde sesiones podría usar POST para crearlas; esa integración todavía no forma parte de este ejemplo.</p>
+<h2>3. Antes de ejecutar en la PC del laboratorio</h2>
+<ol>
+<li>Copia o clona <strong>la carpeta completa</strong>, incluyendo el directorio oculto <code>.mvn</code> y los scripts <code>mvnw</code> y <code>mvnw.cmd</code>.</li>
+<li>Abre una terminal en esa carpeta. Debes ver el <code>pom.xml</code> raíz y las cuatro carpetas de servicios.</li>
+<li>Ejecuta <code>java -version</code>. La referencia probada es JDK 17. El Android SDK y el emulador no se usan para compilar este backend.</li>
+<li>Ejecuta <code>.\mvnw.cmd -version</code>. El wrapper descarga Maven en tu carpeta de usuario; la primera vez necesita conexión.</li>
+<li>Ejecuta <code>.\iniciar.cmd</code> y espera <code>LISTO</code>.</li>
+</ol>
+<p>Si Java no aparece o Maven usa otra versión, selecciona la instalación real de JDK 17. Este ejemplo de PowerShell afecta solo a la terminal actual; sustituye la ruta por la que exista en esa PC:</p>
+<pre><code class="language-powershell">$env:JAVA_HOME = &#39;C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot&#39;
+$env:Path = &quot;$env:JAVA_HOME\bin;$env:Path&quot;
+java -version
+.\mvnw.cmd -version
+</code></pre>
+<p>En IntelliJ configura también Project SDK y Maven Runner JRE con ese JDK. No cambies las versiones del POM solo porque el IDE aún está importando dependencias.</p>
+<h2>4. Primera demostración</h2>
+<p>Abre estas direcciones después de que termine el arranque:</p>
+<ol>
+<li><code>http://localhost:8761</code>: Eureka muestra HELLO-SERVICE, ADDITION-SERVICE y CALCULATOR-SERVICE con estado UP. Los nombres pueden aparecer en mayúsculas.</li>
+<li><code>http://localhost:8001/greeting</code>: responde el saludo.</li>
+<li><code>http://localhost:8010/addition/1/5</code>: responde <code>(1 + 5) = 6</code>.</li>
+<li><code>http://localhost:8020/addcalculator/1/5</code>: responde <code>Calculator : (1 + 5) = 6</code>.</li>
+<li>Cambia <code>1/5</code> por <code>20/8</code>: Calculator debe responder <code>Calculator : (20 + 8) = 28</code>.</li>
+</ol>
+<p>Luego ejecuta <code>.\probar.cmd</code>. Comprueba 13 condiciones HTTP: cuatro estados de salud, tres registros, cinco respuestas y una validación de entrada inválida.</p>
+<p>Para terminar ejecuta <code>.\detener.cmd</code>. Cerrar el navegador o la terminal no apaga los procesos iniciados en segundo plano.</p>
+<h2>5. Seguir una petición paso a paso</h2>
+<pre><code class="language-text">Navegador: GET localhost:8020/addcalculator/1/5
+  -&gt; CalculatorController recibe a=1 y b=5
+  -&gt; AdditionClient solicita addition(1, 5)
+  -&gt; Feign + LoadBalancer resuelven addition-service con el registro de Eureka
+  -&gt; HTTP GET localhost:8010/addition/1/5
+  -&gt; AdditionController calcula y responde (1 + 5) = 6
+  -&gt; Calculator agrega su prefijo y devuelve la respuesta
+</code></pre>
+<p>Calculator consulta una copia local del registro que actualiza periódicamente; no tiene que preguntar a Eureka en cada operación. Eureka no recibe la petición de suma para reenviarla. Los clientes se comunican directamente una vez resuelta la dirección.</p>
+<h2>6. Cómo está armado el POM</h2>
+<p>El <code>pom.xml</code> raíz concentra versiones y enumera módulos. Cada módulo tiene su propio POM, su clase con <code>main()</code> y su <code>application.properties</code>.</p>
+<ul>
+<li><strong>Spring Boot parent:</strong> define versiones de muchas librerías y plugins.</li>
+<li><strong>Spring Cloud BOM:</strong> alinea las versiones de Eureka, Feign y LoadBalancer. En las dependencias de estos componentes no pongas versiones individuales al azar.</li>
+<li><strong>Java 17:</strong> nivel de compilación del backend.</li>
+<li><strong>spring-boot-maven-plugin:</strong> empaqueta un JAR ejecutable con sus dependencias.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Módulo</th>
+<th>Dependencias principales</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Eureka</td>
+<td><code>spring-cloud-starter-netflix-eureka-server</code></td>
+</tr>
+<tr>
+<td>Hello y Addition</td>
+<td><code>spring-boot-starter-webmvc</code>, <code>spring-cloud-starter-netflix-eureka-client</code></td>
+</tr>
+<tr>
+<td>Calculator</td>
+<td>WebMVC, Eureka Client, <code>spring-cloud-starter-openfeign</code>, <code>spring-cloud-starter-loadbalancer</code></td>
+</tr>
+<tr>
+<td>Los cuatro</td>
+<td>Actuator para <code>/actuator/health</code>, Starter Test para pruebas</td>
+</tr>
+</tbody></table>
+<p>Este proyecto usa Maven: aquí editas <code>pom.xml</code>. Los archivos <code>build.gradle</code> y la versión de AGP corresponden al proyecto Android, que tiene una cadena de compilación distinta.</p>
+<h2>7. Anotaciones que debes reconocer</h2>
+<table>
+<thead>
+<tr>
+<th>Anotación</th>
+<th>Para qué sirve</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>@SpringBootApplication</code></td>
+<td>Inicia y configura una aplicación Spring Boot</td>
+</tr>
+<tr>
+<td><code>@EnableEurekaServer</code></td>
+<td>Habilita el servidor de registro</td>
+</tr>
+<tr>
+<td><code>@RestController</code></td>
+<td>Hace que los métodos atiendan peticiones y devuelvan contenido HTTP</td>
+</tr>
+<tr>
+<td><code>@GetMapping</code></td>
+<td>Asocia un método Java con una ruta GET</td>
+</tr>
+<tr>
+<td><code>@PathVariable</code></td>
+<td>Toma un valor de la ruta URL</td>
+</tr>
+<tr>
+<td><code>@EnableFeignClients</code></td>
+<td>Habilita las interfaces Feign de la aplicación</td>
+</tr>
+<tr>
+<td><code>@FeignClient(name=&quot;addition-service&quot;)</code></td>
+<td>Declara a qué servicio debe llamar la interfaz</td>
+</tr>
+</tbody></table>
+<p>Con Eureka Client como dependencia y la configuración correspondiente, el cliente se registra automáticamente; este ejemplo no necesita <code>@EnableDiscoveryClient</code> explícito.</p>
+<h2>8. Cómo cambiar algo sin perderte</h2>
+<p><strong>Cambiar el saludo:</strong> modifica el texto en <code>HelloController.greeting()</code>. Detén los servicios, ejecuta <code>iniciar.cmd</code> otra vez y abre <code>/greeting</code>.</p>
+<p><strong>Cambiar el formato del resultado:</strong> modifica el <code>return</code> de <code>AdditionController</code>. Recuerda ajustar las pruebas que verifican ese texto.</p>
+<p><strong>Cambiar el nombre del proveedor:</strong> si cambias <code>spring.application.name</code> de Addition, cambia también el <code>name</code> de <code>@FeignClient</code> y el nombre de su configuración de timeouts. Si no coinciden, Calculator no lo encontrará.</p>
+<p><strong>Agregar una resta como ejercicio:</strong></p>
+<ol>
+<li>Copia el patrón de Addition en un módulo nuevo <code>subtraction-service</code>, con paquete Java propio.</li>
+<li>Añade ese módulo en <code>&lt;modules&gt;</code> del POM raíz.</li>
+<li>Define <code>spring.application.name=subtraction-service</code>, otro puerto libre, por ejemplo 8030, y la misma URL de Eureka.</li>
+<li>Implementa <code>GET /subtraction/{item_a}/{item_b}</code> y calcula <code>(long) a - b</code>.</li>
+<li>En Calculator crea otra interfaz <code>@FeignClient(name=&quot;subtraction-service&quot;)</code> con la ruta correspondiente.</li>
+<li>Agrega un endpoint <code>/subtractcalculator/{item_a}/{item_b}</code> que use ese cliente.</li>
+<li>Compila, inicia el nuevo servicio y prueba primero su ruta directa; luego prueba la ruta de Calculator.</li>
+</ol>
+<p>Los lanzadores conocen cuatro servicios. Para incluir el quinto, actualiza <code>scripts/comun.ps1</code>, sus pruebas y documentación; también puedes ejecutarlo manualmente.</p>
+<h2>9. Iniciar manualmente, sin el lanzador</h2>
+<p>Primero compila desde la raíz:</p>
+<pre><code class="language-powershell">.\mvnw.cmd -B -ntp verify
+</code></pre>
+<p>Abre cuatro terminales en la misma raíz y ejecuta un comando en cada una, empezando por Eureka:</p>
+<pre><code class="language-powershell"># Terminal 1
+java -jar .\eureka-server\target\eureka-server-1.0.0.jar
+</code></pre>
+<pre><code class="language-powershell"># Terminal 2
+java -jar .\hello-service\target\hello-service-1.0.0.jar
+</code></pre>
+<pre><code class="language-powershell"># Terminal 3
+java -jar .\addition-service\target\addition-service-1.0.0.jar
+</code></pre>
+<pre><code class="language-powershell"># Terminal 4
+java -jar .\calculator-service\target\calculator-service-1.0.0.jar
+</code></pre>
+<p>Cada terminal muestra su log. Detén cada servicio con Ctrl+C. En esta modalidad <code>detener.cmd</code> no los controla: ese comando solo conoce los procesos de su propio lanzador.</p>
+<p>También puedes ejecutar los cuatro métodos <code>main()</code> desde IntelliJ, esperando a que Eureka esté listo antes de los clientes. Usa una modalidad a la vez para evitar puertos duplicados.</p>
+<h2>10. Entender una caída</h2>
+<p>Con la modalidad de cuatro terminales, detén Addition con Ctrl+C. Hello seguirá respondiendo; Calculator devolverá HTTP 503 y explicará que Addition no está disponible. Es una dependencia remota caída: Calculator no inventa una suma exitosa.</p>
+<p>Vuelve a iniciar Addition, espera a que aparezca UP en Eureka y prueba otra vez. Puede tardar unos segundos por las actualizaciones y cachés del registro. Eureka puede seguir mostrando una instancia detenida durante un tiempo; es un registro con latidos y expiración, no una lista de procesos instantánea.</p>
+<p>Este ejemplo maneja el error con HTTP 503 y timeouts. No implementa un circuit breaker ni un mecanismo de reintentos avanzado; Feign y Eureka no equivalen por sí solos a esos patrones.</p>
+<h2>11. Si después te piden conectarlo a Android</h2>
+<p>La app Android sería un cliente HTTP que llama a Calculator y transforma su respuesta. Primero confirma qué pide el nuevo enunciado: formato JSON, operaciones, autenticación y dónde se desplegarán los servicios.</p>
+<p>En un emulador estándar, <code>localhost</code> se refiere al emulador. Para llegar a la PC anfitriona se suele usar <code>http://10.0.2.2:8020/...</code>. En un celular físico se usa la dirección de la PC en la red, con conectividad y firewall adecuados. Android puede exigir una configuración explícita de tráfico HTTP de desarrollo; se revisa al integrar la app, no cambiando el backend a ciegas.</p>
+<p>Firebase del Lab6 resuelve autenticación y datos. Eureka resuelve descubrimiento de servicios. No son intercambiables. Este demo no valida tokens de Firebase ni accede a las sesiones del Lab6; esa integración requiere requisitos y cambios adicionales.</p>
+<h2>12. Lista rápida para estudiar</h2>
+<p>Debes poder explicar con tus palabras:</p>
+<ul>
+<li>Qué aplicación recibe primero la solicitud de Calculator.</li>
+<li>En qué archivo se realiza realmente la suma.</li>
+<li>Por qué Calculator usa un nombre de servicio en lugar del puerto 8010.</li>
+<li>Para qué sirve Eureka y por qué no es quien suma ni reenvía cada petición.</li>
+<li>Qué ocurre cuando Addition se apaga.</li>
+<li>Qué significan 200, 400, 404 y 503.</li>
+<li>Qué cambias en un POM, qué cambias en properties y qué cambias en un controller.</li>
+</ul>
+<p>La referencia completa del código está junto a esta guía. Para problemas de compilación, consulta <code>CONTEXTO_COMPILACION.md</code> y conserva el primer error real.</p>
+</article>
+<article id="parte-2"><h1>Contexto de compilación y ejecución</h1>
+<p>Este archivo describe el proyecto para diagnosticarlo en otra PC. Leer el primer error real antes de cambiar versiones.</p>
+<h2>Proyecto</h2>
+<ul>
+<li>Backend Java 17, Maven con cuatro módulos: <code>eureka-server</code>, <code>hello-service</code>, <code>addition-service</code>, <code>calculator-service</code>.</li>
+<li>Parent del POM raíz: Spring Boot <strong>4.0.9</strong>.</li>
+<li>BOM importado: Spring Cloud <strong>2025.1.4</strong>, compatible con Boot <strong>4.0.x</strong>.</li>
+<li>Wrapper Maven <strong>3.3.4</strong>, distribución <strong>3.9.11</strong>, checksum en <code>.mvn/wrapper/maven-wrapper.properties</code>.</li>
+<li><code>java.version=17</code>. No usa Gradle, AGP, Android SDK ni archivos de Firebase.</li>
+<li>Calculator depende del proveedor mediante <code>@FeignClient(name=&quot;addition-service&quot;)</code>; tiene OpenFeign y LoadBalancer. Addition tiene exactamente ese <code>spring.application.name</code>.</li>
+<li>Registro local en <code>http://localhost:8761/eureka/</code>. Hello 8001, Addition 8010, Calculator 8020.</li>
+<li>Los intervalos de Eureka están acortados para una demostración local. No son una configuración propuesta para producción.</li>
+</ul>
+<h2>Comandos que aportan evidencia</h2>
+<p>Desde la raíz:</p>
+<pre><code class="language-powershell">java -version
+.\mvnw.cmd -version
+.\mvnw.cmd -B -ntp verify
+.\iniciar.cmd -SinCompilar
+.\probar.cmd
+.\detener.cmd
+</code></pre>
+<p>Si falla, conservar la salida desde el primer <code>[ERROR]</code> y el bloque <code>Caused by</code>. Los logs de ejecución están en <code>.run/&lt;servicio&gt;.log</code> y <code>.run/&lt;servicio&gt;.error.log</code>.</p>
+<h2>Qué configuración revisar según el mensaje</h2>
+<table>
+<thead>
+<tr>
+<th>Mensaje o síntoma</th>
+<th>Revisar</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>release version 17 not supported</code></td>
+<td>Maven está usando un JDK viejo. Seleccionar JDK 17 en <code>JAVA_HOME</code> y en el IDE.</td>
+</tr>
+<tr>
+<td><code>UnsupportedClassVersionError</code></td>
+<td>Se está ejecutando el JAR con Java anterior a 17.</td>
+</tr>
+<tr>
+<td>Boot no compatible con Cloud</td>
+<td>Mantener Boot 4.0.x con Cloud 2025.1.x; no saltarse el verificador.</td>
+</tr>
+<tr>
+<td><code>Could not transfer artifact</code>, PKIX, proxy</td>
+<td>Red, certificado o proxy de Maven del laboratorio; no cambiar código Java al azar.</td>
+</tr>
+<tr>
+<td>Puerto ocupado</td>
+<td>Detener la otra instancia o cambiar <code>server.port</code> del servicio afectado.</td>
+</tr>
+<tr>
+<td>No se puede conectar a 8761</td>
+<td>Iniciar Eureka primero y revisar su log.</td>
+</tr>
+<tr>
+<td>HTTP 503 en Calculator</td>
+<td>Addition debe estar UP en Eureka; esperar el registro y revisar que sus nombres coincidan.</td>
+</tr>
+<tr>
+<td>HTTP 404</td>
+<td>Ruta incorrecta: usar <code>/addcalculator/1/5</code> o <code>/addition/1/5</code>, respectivamente.</td>
+</tr>
+<tr>
+<td>HTTP 400</td>
+<td>La ruta recibe enteros, no texto ni decimales.</td>
+</tr>
+<tr>
+<td>POM rojo en IntelliJ</td>
+<td>Importar el POM raíz y recargar Maven con JDK 17.</td>
+</tr>
+</tbody></table>
+<p>Si se cambia el puerto de Eureka, también hay que cambiar <code>eureka.client.service-url.defaultZone</code> en los tres clientes. Si se cambian puertos para usar los scripts, actualizar <code>$Services</code> en <code>scripts/comun.ps1</code>, las URLs fijas de espera en <code>scripts/iniciar.ps1</code>, las pruebas y la documentación.</p>
+<p>La prueba inicial en esta PC se realizó con Temurin JDK 17.0.19, Boot 4.0.9 y Cloud 2025.1.4. Esto no garantiza que una PC sin internet o sin JDK 17 pueda descargar y ejecutar dependencias; los comandos anteriores identifican ese problema.</p>
+</article>
+<article id="parte-3"><h1>Referencia del código</h1>
+<p>Cada sección indica su ubicación dentro del proyecto. Incluye configuración, fuentes, pruebas y lanzadores.</p>
+<h2>.mvn/wrapper/maven-wrapper.properties</h2>
+<pre><code class="language-properties">wrapperVersion=3.3.4
+distributionType=only-script
+distributionUrl=https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.11/apache-maven-3.9.11-bin.zip
+distributionSha256Sum=0d7125e8c91097b36edb990ea5934e6c68b4440eef4ea96510a0f6815e7eeadb
+</code></pre>
+<h2>addition-service/pom.xml</h2>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot; xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+  &lt;parent&gt;
+    &lt;groupId&gt;com.example.clase12&lt;/groupId&gt;
+    &lt;artifactId&gt;microservicios-basico&lt;/artifactId&gt;
+    &lt;version&gt;1.0.0&lt;/version&gt;
+  &lt;/parent&gt;
+  &lt;artifactId&gt;addition-service&lt;/artifactId&gt;
+  &lt;dependencies&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-webmvc&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-cloud-starter-netflix-eureka-client&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-actuator&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+      &lt;scope&gt;test&lt;/scope&gt;
+    &lt;/dependency&gt;
+  &lt;/dependencies&gt;
+  &lt;build&gt;
+    &lt;plugins&gt;
+      &lt;plugin&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;
+      &lt;/plugin&gt;
+    &lt;/plugins&gt;
+  &lt;/build&gt;
+&lt;/project&gt;
+</code></pre>
+<h2>addition-service/src/main/java/com/example/clase12/addition/AdditionController.java</h2>
+<pre><code class="language-java">package com.example.clase12.addition;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class AdditionController {
+    @GetMapping(&quot;/addition/{item_a}/{item_b}&quot;)
+    public String addition(@PathVariable(&quot;item_a&quot;) int a, @PathVariable(&quot;item_b&quot;) int b) {
+        // Convertir antes de sumar evita el desbordamiento de int.
+        long sum = (long) a + b;
+        return &quot;(&quot; + a + &quot; + &quot; + b + &quot;) = &quot; + sum;
+    }
+}
+</code></pre>
+<h2>addition-service/src/main/java/com/example/clase12/addition/AdditionServiceApplication.java</h2>
+<pre><code class="language-java">package com.example.clase12.addition;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+
+@SpringBootApplication
+public class AdditionServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(AdditionServiceApplication.class, args);
+    }
+}
+</code></pre>
+<h2>addition-service/src/main/resources/application.properties</h2>
+<pre><code class="language-properties">spring.application.name=addition-service
+server.port=8010
+management.endpoints.web.exposure.include=health,info
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+eureka.instance.hostname=localhost
+eureka.instance.prefer-ip-address=true
+eureka.instance.ip-address=127.0.0.1
+# Intervalos cortos para las pruebas en una sola PC.
+eureka.client.registry-fetch-interval-seconds=5
+eureka.client.initial-instance-info-replication-interval-seconds=5
+eureka.instance.lease-renewal-interval-in-seconds=5
+</code></pre>
+<h2>addition-service/src/test/java/com/example/clase12/addition/AdditionControllerTest.java</h2>
+<pre><code class="language-java">package com.example.clase12.addition;
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class AdditionControllerTest {
+    private final AdditionController controller = new AdditionController();
+
+    @Test void sumaPositivos() { assertEquals(&quot;(1 + 5) = 6&quot;, controller.addition(1,5)); }
+    @Test void aceptaNegativos() { assertEquals(&quot;(-8 + 3) = -5&quot;, controller.addition(-8,3)); }
+    @Test void evitaDesbordamientoInt() {
+        assertEquals(&quot;(2147483647 + 1) = 2147483648&quot;, controller.addition(Integer.MAX_VALUE,1));
+    }
+}
+</code></pre>
+<h2>calculator-service/pom.xml</h2>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot; xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+  &lt;parent&gt;
+    &lt;groupId&gt;com.example.clase12&lt;/groupId&gt;
+    &lt;artifactId&gt;microservicios-basico&lt;/artifactId&gt;
+    &lt;version&gt;1.0.0&lt;/version&gt;
+  &lt;/parent&gt;
+  &lt;artifactId&gt;calculator-service&lt;/artifactId&gt;
+  &lt;dependencies&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-webmvc&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-cloud-starter-netflix-eureka-client&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-cloud-starter-openfeign&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-cloud-starter-loadbalancer&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-actuator&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+      &lt;scope&gt;test&lt;/scope&gt;
+    &lt;/dependency&gt;
+  &lt;/dependencies&gt;
+  &lt;build&gt;
+    &lt;plugins&gt;
+      &lt;plugin&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;
+      &lt;/plugin&gt;
+    &lt;/plugins&gt;
+  &lt;/build&gt;
+&lt;/project&gt;
+</code></pre>
+<h2>calculator-service/src/main/java/com/example/clase12/calculator/AdditionClient.java</h2>
+<pre><code class="language-java">package com.example.clase12.calculator;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+// El nombre coincide con spring.application.name de Addition.
+// Eureka descubre su direccion; no escribimos un puerto fijo aqui.
+@FeignClient(name = &quot;addition-service&quot;)
+public interface AdditionClient {
+    @GetMapping(&quot;/addition/{item_a}/{item_b}&quot;)
+    String addition(@PathVariable(&quot;item_a&quot;) int a, @PathVariable(&quot;item_b&quot;) int b);
+}
+</code></pre>
+<h2>calculator-service/src/main/java/com/example/clase12/calculator/CalculatorController.java</h2>
+<pre><code class="language-java">package com.example.clase12.calculator;
+
+import feign.FeignException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class CalculatorController {
+    private final AdditionClient additionClient;
+
+    public CalculatorController(AdditionClient additionClient) {
+        this.additionClient = additionClient;
+    }
+
+    @GetMapping(&quot;/addcalculator/{item_a}/{item_b}&quot;)
+    public ResponseEntity&lt;String&gt; calculate(@PathVariable(&quot;item_a&quot;) int a,
+                                          @PathVariable(&quot;item_b&quot;) int b) {
+        try {
+            // Esta llamada HTTP ejecuta la suma en OTRO proceso: Addition.
+            return ResponseEntity.ok(&quot;Calculator : &quot; + additionClient.addition(a, b));
+        } catch (FeignException ex) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(&quot;Addition no esta disponible. Revisa que este iniciado y registrado en Eureka.&quot;);
+        }
+    }
+}
+</code></pre>
+<h2>calculator-service/src/main/java/com/example/clase12/calculator/CalculatorServiceApplication.java</h2>
+<pre><code class="language-java">package com.example.clase12.calculator;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+@SpringBootApplication
+@EnableFeignClients
+public class CalculatorServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(CalculatorServiceApplication.class, args);
+    }
+}
+</code></pre>
+<h2>calculator-service/src/main/resources/application.properties</h2>
+<pre><code class="language-properties">spring.application.name=calculator-service
+server.port=8020
+management.endpoints.web.exposure.include=health,info
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+eureka.instance.hostname=localhost
+eureka.instance.prefer-ip-address=true
+eureka.instance.ip-address=127.0.0.1
+# Intervalos cortos para las pruebas en una sola PC.
+eureka.client.registry-fetch-interval-seconds=5
+eureka.client.initial-instance-info-replication-interval-seconds=5
+eureka.instance.lease-renewal-interval-in-seconds=5
+spring.cloud.openfeign.client.config.addition-service.connectTimeout=2000
+spring.cloud.openfeign.client.config.addition-service.readTimeout=3000
+</code></pre>
+<h2>calculator-service/src/test/java/com/example/clase12/calculator/CalculatorControllerTest.java</h2>
+<pre><code class="language-java">package com.example.clase12.calculator;
+
+import feign.Request;
+import feign.RetryableException;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+class CalculatorControllerTest {
+    @Test void delegaLaOperacionAlClienteRemoto() {
+        AdditionClient client = mock(AdditionClient.class);
+        when(client.addition(1,5)).thenReturn(&quot;(1 + 5) = 6&quot;);
+        var result = new CalculatorController(client).calculate(1,5);
+        assertEquals(200, result.getStatusCode().value());
+        assertEquals(&quot;Calculator : (1 + 5) = 6&quot;, result.getBody());
+        verify(client).addition(1,5);
+    }
+
+    @Test void devuelve503SiElServicioRemotoFalla() {
+        AdditionClient client = mock(AdditionClient.class);
+        Request request = Request.create(Request.HttpMethod.GET, &quot;http://addition-service/addition/1/5&quot;,
+                Map.of(), null, java.nio.charset.StandardCharsets.UTF_8, null);
+        when(client.addition(1,5)).thenThrow(new RetryableException(-1, &quot;Sin conexion&quot;,
+                Request.HttpMethod.GET, (Long) null, request));
+        var result = new CalculatorController(client).calculate(1,5);
+        assertEquals(503, result.getStatusCode().value());
+    }
+}
+</code></pre>
+<h2>detener.cmd</h2>
+<pre><code class="language-bat">@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;%~dp0scripts\detener.ps1&quot;
+exit /b %errorlevel%
+</code></pre>
+<h2>eureka-server/pom.xml</h2>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot; xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+  &lt;parent&gt;
+    &lt;groupId&gt;com.example.clase12&lt;/groupId&gt;
+    &lt;artifactId&gt;microservicios-basico&lt;/artifactId&gt;
+    &lt;version&gt;1.0.0&lt;/version&gt;
+  &lt;/parent&gt;
+  &lt;artifactId&gt;eureka-server&lt;/artifactId&gt;
+  &lt;dependencies&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-cloud-starter-netflix-eureka-server&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-actuator&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+      &lt;scope&gt;test&lt;/scope&gt;
+    &lt;/dependency&gt;
+  &lt;/dependencies&gt;
+  &lt;build&gt;
+    &lt;plugins&gt;
+      &lt;plugin&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;
+      &lt;/plugin&gt;
+    &lt;/plugins&gt;
+  &lt;/build&gt;
+&lt;/project&gt;
+</code></pre>
+<h2>eureka-server/src/main/java/com/example/clase12/eureka/EurekaServerApplication.java</h2>
+<pre><code class="language-java">package com.example.clase12.eureka;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.eureka.server.EnableEurekaServer;
+
+@SpringBootApplication
+@EnableEurekaServer
+public class EurekaServerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(EurekaServerApplication.class, args);
+    }
+}
+</code></pre>
+<h2>eureka-server/src/main/resources/application.properties</h2>
+<pre><code class="language-properties">spring.application.name=eureka-server
+server.port=8761
+management.endpoints.web.exposure.include=health,info
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
+# Solo acelera el ejemplo local: el registro sigue siendo eventual.
+eureka.server.response-cache-update-interval-ms=1000
+</code></pre>
+<h2>hello-service/pom.xml</h2>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot; xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+  &lt;parent&gt;
+    &lt;groupId&gt;com.example.clase12&lt;/groupId&gt;
+    &lt;artifactId&gt;microservicios-basico&lt;/artifactId&gt;
+    &lt;version&gt;1.0.0&lt;/version&gt;
+  &lt;/parent&gt;
+  &lt;artifactId&gt;hello-service&lt;/artifactId&gt;
+  &lt;dependencies&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-webmvc&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-cloud-starter-netflix-eureka-client&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-actuator&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+      &lt;scope&gt;test&lt;/scope&gt;
+    &lt;/dependency&gt;
+  &lt;/dependencies&gt;
+  &lt;build&gt;
+    &lt;plugins&gt;
+      &lt;plugin&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;
+      &lt;/plugin&gt;
+    &lt;/plugins&gt;
+  &lt;/build&gt;
+&lt;/project&gt;
+</code></pre>
+<h2>hello-service/src/main/java/com/example/clase12/hello/HelloController.java</h2>
+<pre><code class="language-java">package com.example.clase12.hello;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class HelloController {
+    @GetMapping(&quot;/greeting&quot;)
+    public String greeting() {
+        return &quot;Hello from &#39;hello-service&#39;!&quot;;
+    }
+}
+</code></pre>
+<h2>hello-service/src/main/java/com/example/clase12/hello/HelloServiceApplication.java</h2>
+<pre><code class="language-java">package com.example.clase12.hello;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+
+@SpringBootApplication
+public class HelloServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(HelloServiceApplication.class, args);
+    }
+}
+</code></pre>
+<h2>hello-service/src/main/resources/application.properties</h2>
+<pre><code class="language-properties">spring.application.name=hello-service
+server.port=8001
+management.endpoints.web.exposure.include=health,info
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+eureka.instance.hostname=localhost
+eureka.instance.prefer-ip-address=true
+eureka.instance.ip-address=127.0.0.1
+# Intervalos cortos para las pruebas en una sola PC.
+eureka.client.registry-fetch-interval-seconds=5
+eureka.client.initial-instance-info-replication-interval-seconds=5
+eureka.instance.lease-renewal-interval-in-seconds=5
+</code></pre>
+<h2>iniciar.cmd</h2>
+<pre><code class="language-bat">@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;%~dp0scripts\iniciar.ps1&quot; %*
+exit /b %errorlevel%
+</code></pre>
+<h2>peticiones.http</h2>
+<pre><code class="language-http">### Registro Eureka: abrir en navegador
+GET http://localhost:8761/
+
+### Saludo independiente
+GET http://localhost:8001/greeting
+
+### Suma directa
+GET http://localhost:8010/addition/1/5
+
+### Calculator delega por Feign + Eureka
+GET http://localhost:8020/addcalculator/1/5
+
+### Negativos
+GET http://localhost:8020/addcalculator/-8/3
+
+### Validacion automatica: HTTP 400
+GET http://localhost:8020/addcalculator/texto/3
+
+### Registro de Addition
+GET http://localhost:8761/eureka/apps/addition-service
+Accept: application/json
+</code></pre>
+<h2>pom.xml</h2>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot; xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+  &lt;parent&gt;
+    &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+    &lt;artifactId&gt;spring-boot-starter-parent&lt;/artifactId&gt;
+    &lt;version&gt;4.0.9&lt;/version&gt;
+    &lt;relativePath/&gt;
+  &lt;/parent&gt;
+  &lt;groupId&gt;com.example.clase12&lt;/groupId&gt;
+  &lt;artifactId&gt;microservicios-basico&lt;/artifactId&gt;
+  &lt;version&gt;1.0.0&lt;/version&gt;
+  &lt;packaging&gt;pom&lt;/packaging&gt;
+  &lt;name&gt;Microservicios basico - Clase 12&lt;/name&gt;
+  &lt;properties&gt;
+    &lt;java.version&gt;17&lt;/java.version&gt;
+    &lt;spring-cloud.version&gt;2025.1.4&lt;/spring-cloud.version&gt;
+  &lt;/properties&gt;
+  &lt;modules&gt;
+    &lt;module&gt;eureka-server&lt;/module&gt;
+    &lt;module&gt;hello-service&lt;/module&gt;
+    &lt;module&gt;addition-service&lt;/module&gt;
+    &lt;module&gt;calculator-service&lt;/module&gt;
+  &lt;/modules&gt;
+  &lt;dependencyManagement&gt;
+    &lt;dependencies&gt;
+      &lt;dependency&gt;
+        &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-cloud-dependencies&lt;/artifactId&gt;
+        &lt;version&gt;${spring-cloud.version}&lt;/version&gt;
+        &lt;type&gt;pom&lt;/type&gt;
+        &lt;scope&gt;import&lt;/scope&gt;
+      &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+  &lt;/dependencyManagement&gt;
+&lt;/project&gt;
+</code></pre>
+<h2>probar.cmd</h2>
+<pre><code class="language-bat">@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;%~dp0scripts\probar.ps1&quot;
+exit /b %errorlevel%
+</code></pre>
+<h2>scripts/comun.ps1</h2>
+<pre><code class="language-powershell">$ErrorActionPreference = &#39;Stop&#39;
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
+$RuntimeDir = Join-Path $ProjectRoot &#39;.run&#39;
+$StateFile = Join-Path $RuntimeDir &#39;procesos.json&#39;
+$Services = @(
+    @{ Name = &#39;eureka-server&#39;; Port = 8761 },
+    @{ Name = &#39;hello-service&#39;; Port = 8001 },
+    @{ Name = &#39;addition-service&#39;; Port = 8010 },
+    @{ Name = &#39;calculator-service&#39;; Port = 8020 }
+)
+
+function Get-JarPath([string]$Name) {
+    Join-Path $ProjectRoot &quot;$Name\target\$Name-1.0.0.jar&quot;
+}
+
+function Get-OwnedProcess($Entry) {
+    $process = Get-CimInstance Win32_Process -Filter &quot;ProcessId = $($Entry.ProcessId)&quot; -ErrorAction SilentlyContinue
+    $jar = Get-JarPath $Entry.Name
+    if ($process -and $process.Name -eq &#39;java.exe&#39; -and
+        $process.CommandLine -and $process.CommandLine.Contains($jar)) {
+        return $process
+    }
+    return $null
+}
+
+function Wait-Http([string]$Url, [int]$Seconds = 120) {
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    do {
+        try {
+            $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
+            if ($response.StatusCode -eq 200) { return }
+        } catch { }
+        Start-Sleep -Seconds 2
+    } while ((Get-Date) -lt $deadline)
+    throw &quot;No respondio $Url. Revisa los archivos de .run.&quot;
+}
+</code></pre>
+<h2>scripts/detener.ps1</h2>
+<pre><code class="language-powershell">. &quot;$PSScriptRoot\comun.ps1&quot;
+if (!(Test-Path -LiteralPath $StateFile)) {
+    Write-Host &#39;No hay procesos registrados por este proyecto.&#39;
+    return
+}
+$entries = Get-Content -LiteralPath $StateFile -Raw | ConvertFrom-Json
+foreach ($entry in $entries) {
+    if (Get-OwnedProcess $entry) {
+        Stop-Process -Id $entry.ProcessId -ErrorAction Stop
+        Write-Host &quot;Detenido: $($entry.Name)&quot;
+    } else {
+        Write-Host &quot;Ya no esta activo: $($entry.Name)&quot;
+    }
+}
+Remove-Item -LiteralPath $StateFile
+</code></pre>
+<h2>scripts/iniciar.ps1</h2>
+<pre><code class="language-powershell">param([switch]$SinCompilar)
+. &quot;$PSScriptRoot\comun.ps1&quot;
+
+if (Test-Path -LiteralPath $StateFile) {
+    $entries = Get-Content -LiteralPath $StateFile -Raw | ConvertFrom-Json
+    foreach ($entry in $entries) {
+        if (Get-OwnedProcess $entry) {
+            throw &#39;El ejemplo ya esta iniciado. Usa detener.cmd antes de iniciarlo otra vez.&#39;
+        }
+    }
+}
+foreach ($service in $Services) {
+    if (Get-NetTCPConnection -LocalPort $service.Port -State Listen -ErrorAction SilentlyContinue) {
+        throw &quot;El puerto $($service.Port) esta ocupado. Cierra esa aplicacion o cambia su puerto.&quot;
+    }
+}
+if ($env:JAVA_HOME) {
+    $java = Join-Path $env:JAVA_HOME &#39;bin\java.exe&#39;
+} else {
+    $java = (Get-Command java.exe -ErrorAction Stop).Source
+}
+if (!(Test-Path -LiteralPath $java)) { throw &#39;Revisa JAVA_HOME: no se encontro java.exe.&#39; }
+Write-Host &#39;Java seleccionado:&#39; $java
+&amp; $java -version
+if (!$SinCompilar) {
+    Push-Location $ProjectRoot
+    try {
+        &amp; &#39;.\mvnw.cmd&#39; -B -ntp verify
+        if ($LASTEXITCODE -ne 0) { throw &#39;Fallo Maven. Lee el primer ERROR de la compilacion.&#39; }
+    } finally { Pop-Location }
+}
+foreach ($service in $Services) {
+    if (!(Test-Path -LiteralPath (Get-JarPath $service.Name))) {
+        throw &#39;Faltan los JAR. Ejecuta iniciar.cmd para compilar primero.&#39;
+    }
+}
+New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+$started = @()
+try {
+    foreach ($service in $Services) {
+        $jar = Get-JarPath $service.Name
+        $process = Start-Process -FilePath $java -ArgumentList @(&#39;-Xms64m&#39;, &#39;-Xmx256m&#39;, &#39;-jar&#39;, &quot;`&quot;$jar`&quot;&quot;) `
+            -WorkingDirectory $ProjectRoot -WindowStyle Hidden -PassThru `
+            -RedirectStandardOutput (Join-Path $RuntimeDir &quot;$($service.Name).log&quot;) `
+            -RedirectStandardError (Join-Path $RuntimeDir &quot;$($service.Name).error.log&quot;)
+        $started += [pscustomobject]@{ Name = $service.Name; ProcessId = $process.Id; Port = $service.Port }
+        ConvertTo-Json -InputObject @($started) | Set-Content -LiteralPath $StateFile -Encoding UTF8
+        Write-Host &quot;Iniciando $($service.Name) en $($service.Port)...&quot;
+        Wait-Http &quot;http://localhost:$($service.Port)/actuator/health&quot;
+    }
+    Write-Host &#39;Esperando que Calculator descubra Addition mediante Eureka...&#39;
+    Wait-Http &#39;http://localhost:8020/addcalculator/1/5&#39;
+    Write-Host &#39;LISTO. Eureka: http://localhost:8761&#39;
+    Write-Host &#39;Prueba: http://localhost:8020/addcalculator/1/5&#39;
+    Write-Host &#39;Para detener todo: .\detener.cmd&#39;
+} catch {
+    foreach ($entry in $started) {
+        if (Get-OwnedProcess $entry) { Stop-Process -Id $entry.ProcessId -ErrorAction SilentlyContinue }
+    }
+    throw
+}
+</code></pre>
+<h2>scripts/probar.ps1</h2>
+<pre><code class="language-powershell">. &quot;$PSScriptRoot\comun.ps1&quot;
+$script:checks = 0
+function Check([string]$Url, [string]$Expected) {
+    $result = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 10
+    if ($result.StatusCode -ne 200 -or $result.Content.Trim() -ne $Expected) {
+        throw &quot;Respuesta inesperada en $Url : $($result.Content)&quot;
+    }
+    $script:checks++
+    Write-Host &quot;OK $Url&quot;
+}
+foreach ($service in $Services) {
+    $health = Invoke-RestMethod &quot;http://localhost:$($service.Port)/actuator/health&quot; -TimeoutSec 10
+    if ($health.status -ne &#39;UP&#39;) { throw &quot;No esta listo $($service.Name)&quot; }
+    $script:checks++
+}
+foreach ($name in @(&#39;hello-service&#39;,&#39;addition-service&#39;,&#39;calculator-service&#39;)) {
+    $registration = Invoke-RestMethod &quot;http://localhost:8761/eureka/apps/$name&quot; -Headers @{ Accept = &#39;application/json&#39; } -TimeoutSec 10
+    if (@($registration.application.instance | Where-Object status -eq &#39;UP&#39;).Count -lt 1) {
+        throw &quot;No esta registrado $name&quot;
+    }
+    $script:checks++
+}
+Check &#39;http://localhost:8001/greeting&#39; &quot;Hello from &#39;hello-service&#39;!&quot;
+Check &#39;http://localhost:8010/addition/1/5&#39; &#39;(1 + 5) = 6&#39;
+Check &#39;http://localhost:8020/addcalculator/1/5&#39; &#39;Calculator : (1 + 5) = 6&#39;
+Check &#39;http://localhost:8020/addcalculator/-8/3&#39; &#39;Calculator : (-8 + 3) = -5&#39;
+Check &#39;http://localhost:8010/addition/2147483647/1&#39; &#39;(2147483647 + 1) = 2147483648&#39;
+$code = 0
+try {
+    $response = Invoke-WebRequest &#39;http://localhost:8020/addcalculator/texto/3&#39; -UseBasicParsing -TimeoutSec 10
+    $code = [int]$response.StatusCode
+} catch {
+    if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
+    else { throw }
+}
+if ($code -ne 400) { throw &quot;Se esperaba HTTP 400 para texto en lugar de numero; recibido $code&quot; }
+$script:checks++
+Write-Host &quot;$script:checks comprobaciones HTTP correctas.&quot;
+</code></pre>
+</article></main></body></html>

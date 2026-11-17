@@ -1,0 +1,21 @@
+### Registro Eureka: abrir en navegador
+GET http://localhost:8761/
+
+### Saludo independiente
+GET http://localhost:8001/greeting
+
+### Suma directa
+GET http://localhost:8010/addition/1/5
+
+### Calculator delega por Feign + Eureka
+GET http://localhost:8020/addcalculator/1/5
+
+### Negativos
+GET http://localhost:8020/addcalculator/-8/3
+
+### Validacion automatica: HTTP 400
+GET http://localhost:8020/addcalculator/texto/3
+
+### Registro de Addition
+GET http://localhost:8761/eureka/apps/addition-service
+Accept: application/json
