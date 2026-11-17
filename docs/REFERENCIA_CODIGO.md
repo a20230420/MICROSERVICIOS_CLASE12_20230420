@@ -305,6 +305,238 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\detener.ps
 exit /b %errorlevel%
 ```
 
+## ejemplos/android-lab06/app/src/debug/AndroidManifest.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:networkSecurityConfig="@xml/network_security_config_microservicios"/>
+</manifest>
+```
+
+## ejemplos/android-lab06/app/src/debug/res/xml/network_security_config_microservicios.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false"/>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>
+```
+
+## ejemplos/android-lab06/app/src/main/java/com/example/lab06_20230420/CalculatorHttpClient.java
+
+```java
+package com.example.lab06_20230420;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+
+/** Cliente Java sin dependencias adicionales. Ejecutar fuera del hilo de interfaz. */
+public final class CalculatorHttpClient {
+    private final String baseUrl;
+
+    public CalculatorHttpClient(String baseUrl) {
+        this.baseUrl = baseUrl.replaceAll("/+$", "");
+    }
+
+    public String sumar(int a, int b) throws IOException {
+        URL url = new URL(baseUrl + "/addcalculator/" + a + "/" + b);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        try {
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(3000);
+            connection.setReadTimeout(6000);
+            connection.setRequestProperty("Accept", "text/plain");
+            int status = connection.getResponseCode();
+            InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
+            StringBuilder body = new StringBuilder();
+            if (stream != null) {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (body.length() > 0) body.append('\n');
+                        body.append(line);
+                    }
+                }
+            }
+            if (status < 200 || status >= 300) {
+                throw new IOException("HTTP " + status + ": " + body);
+            }
+            return body.toString();
+        } finally {
+            connection.disconnect();
+        }
+    }
+}
+```
+
+## ejemplos/android-lab06/app/src/main/java/com/example/lab06_20230420/MicroserviciosActivity.java
+
+```java
+package com.example.lab06_20230420;
+
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/** Pantalla opcional para copiar al Lab06; conserva su acceso con Firebase. */
+public class MicroserviciosActivity extends PantallaPrivada {
+    // Emulador Android -> PC anfitriona. En un celular real se cambia la direccion.
+    private static final String BASE_URL = "http://10.0.2.2:8020";
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final CalculatorHttpClient client = new CalculatorHttpClient(BASE_URL);
+    private EditText numberA, numberB;
+    private TextView result;
+    private Button calculate;
+
+    @Override protected void onCreate(Bundle saved) {
+        super.onCreate(saved);
+        if (isFinishing() || repository == null) return;
+        setContentView(R.layout.activity_microservicios);
+        ajustarBarras();
+        numberA = findViewById(R.id.mc_numero_a);
+        numberB = findViewById(R.id.mc_numero_b);
+        result = findViewById(R.id.mc_resultado);
+        calculate = findViewById(R.id.mc_calcular);
+        findViewById(R.id.mc_volver).setOnClickListener(v -> finish());
+        calculate.setOnClickListener(v -> calculate());
+    }
+
+    private void calculate() {
+        final int a, b;
+        try {
+            a = Integer.parseInt(numberA.getText().toString().trim());
+            b = Integer.parseInt(numberB.getText().toString().trim());
+        } catch (NumberFormatException ex) {
+            result.setText(R.string.mc_enteros);
+            return;
+        }
+        calculate.setEnabled(false);
+        result.setText(R.string.mc_consultando);
+        worker.execute(() -> {
+            String message;
+            try {
+                message = client.sumar(a, b);
+            } catch (IOException ex) {
+                message = getString(R.string.mc_error, ex.getMessage());
+            }
+            final String response = message;
+            runOnUiThread(() -> {
+                if (isDestroyed() || isFinishing()) return;
+                result.setText(response);
+                calculate.setEnabled(true);
+            });
+        });
+    }
+
+    @Override protected void onDestroy() {
+        worker.shutdownNow();
+        super.onDestroy();
+    }
+}
+```
+
+## ejemplos/android-lab06/app/src/main/res/layout/activity_microservicios.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/mc_titulo"
+            android:textSize="24sp"
+            android:textStyle="bold"/>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/mc_explicacion"/>
+        <EditText
+            android:id="@+id/mc_numero_a"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:minHeight="48dp"
+            android:hint="@string/mc_numero_a"
+            android:inputType="numberSigned"
+            android:importantForAutofill="no"
+            android:selectAllOnFocus="true"
+            android:text="1"/>
+        <EditText
+            android:id="@+id/mc_numero_b"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:hint="@string/mc_numero_b"
+            android:inputType="numberSigned"
+            android:importantForAutofill="no"
+            android:selectAllOnFocus="true"
+            android:text="5"/>
+        <Button
+            android:id="@+id/mc_calcular"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/mc_calcular"/>
+        <TextView
+            android:id="@+id/mc_resultado"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="20dp"
+            android:accessibilityLiveRegion="polite"
+            android:text="@string/mc_listo"
+            android:textIsSelectable="true"
+            android:textSize="18sp"/>
+        <Button
+            android:id="@+id/mc_volver"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/mc_volver"/>
+    </LinearLayout>
+</ScrollView>
+```
+
+## ejemplos/android-lab06/app/src/main/res/values/strings_microservicios.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mc_abrir">Probar microservicios</string>
+    <string name="mc_titulo">Prueba de microservicios</string>
+    <string name="mc_explicacion">Android envía dos enteros a Calculator. Calculator encuentra Addition en Eureka y le pide la suma.</string>
+    <string name="mc_numero_a">Primer número entero</string>
+    <string name="mc_numero_b">Segundo número entero</string>
+    <string name="mc_calcular">Sumar en el servidor</string>
+    <string name="mc_volver">Volver a mis sesiones</string>
+    <string name="mc_listo">Inicia el backend en la PC y pulsa el botón.</string>
+    <string name="mc_enteros">Escribe dos enteros entre -2147483648 y 2147483647.</string>
+    <string name="mc_consultando">Consultando al servidor…</string>
+    <string name="mc_error">No se completó la consulta: %1$s</string>
+</resources>
+```
+
 ## eureka-server/pom.xml
 
 ```xml

@@ -5,3 +5,14 @@
 .run/
 *.log
 .DS_Store
+**/.gradle/
+**/build/
+**/local.properties
+**/google-services*.json
+**/service-account*.json
+**/*serviceAccount*.json
+*.jks
+*.keystore
+.env
+.env.*
+!.env.example

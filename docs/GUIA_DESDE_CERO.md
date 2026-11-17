@@ -169,6 +169,8 @@ Este ejemplo maneja el error con HTTP 503 y timeouts. No implementa un circuit b
 
 ## 11. Si después te piden conectarlo a Android
 
+Ya tienes una extensión opcional en `ejemplos/android-lab06/`: una pantalla, cliente HTTP y configuración de red debug. Consulta la guía `docs/INTEGRAR_CON_LAB06.md` para copiarla al Lab06 publicado, conservar sus versiones y probar la suma desde Android. La pantalla no se incorpora automáticamente al proyecto original.
+
 La app Android sería un cliente HTTP que llama a Calculator y transforma su respuesta. Primero confirma qué pide el nuevo enunciado: formato JSON, operaciones, autenticación y dónde se desplegarán los servicios.
 
 En un emulador estándar, `localhost` se refiere al emulador. Para llegar a la PC anfitriona se suele usar `http://10.0.2.2:8020/...`. En un celular físico se usa la dirección de la PC en la red, con conectividad y firewall adecuados. Android puede exigir una configuración explícita de tráfico HTTP de desarrollo; se revisa al integrar la app, no cambiando el backend a ciegas.

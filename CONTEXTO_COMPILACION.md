@@ -12,6 +12,8 @@ Este archivo describe el proyecto para diagnosticarlo en otra PC. Leer el primer
 - Calculator depende del proveedor mediante `@FeignClient(name="addition-service")`; tiene OpenFeign y LoadBalancer. Addition tiene exactamente ese `spring.application.name`.
 - Registro local en `http://localhost:8761/eureka/`. Hello 8001, Addition 8010, Calculator 8020.
 - Los intervalos de Eureka están acortados para una demostración local. No son una configuración propuesta para producción.
+- `ejemplos/android-lab06/` contiene archivos opcionales, no un quinto módulo Maven. Se copian al proyecto Android separado siguiendo `docs/INTEGRAR_CON_LAB06.md`.
+- El Lab06 conserva AGP 9.0.0, Gradle 9.1.0, Java de código 11, minSdk 34 y compile/targetSdk 36. El cliente HTTP no requiere modificar sus dependencias.
 
 ## Comandos que aportan evidencia
 

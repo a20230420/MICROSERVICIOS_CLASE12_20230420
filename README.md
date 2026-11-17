@@ -2,9 +2,18 @@
 
 Ejemplo de estudio en Java basado en los cuatro repositorios de la clase: Eureka Server, Hello, Addition y Calculator. Cada servicio corre como una aplicación independiente. Calculator realiza una llamada HTTP a Addition usando OpenFeign y encuentra su dirección mediante Eureka.
 
+Repositorio: [MICROSERVICIOS_CLASE12_20230420](https://github.com/a20230420/MICROSERVICIOS_CLASE12_20230420). La raíz contiene los cuatro módulos y el POM; la extensión Android está en `ejemplos/`.
+
 ## Abrir y ejecutar en Windows
 
 Necesitas **JDK 17** e internet la primera vez para descargar Maven y las dependencias. No necesitas instalar Maven por separado.
+
+Para clonarlo:
+
+```bash
+git clone https://github.com/a20230420/MICROSERVICIOS_CLASE12_20230420.git
+cd MICROSERVICIOS_CLASE12_20230420
+```
 
 Abre una terminal dentro de esta carpeta, donde están `pom.xml` e `iniciar.cmd`:
 
@@ -64,12 +73,13 @@ Se añadió LoadBalancer explícitamente para descubrir Addition con Feign, se f
 - **Guía desde cero:** [docs/GUIA_DESDE_CERO.md](docs/GUIA_DESDE_CERO.md).
 - **Guía y código consultables sin internet:** [docs/GUIA_OFFLINE.html](docs/GUIA_OFFLINE.html). Ábrelo con doble clic.
 - **Referencia de archivos:** [docs/REFERENCIA_CODIGO.md](docs/REFERENCIA_CODIGO.md).
+- **Conectar con tu Lab06:** [docs/INTEGRAR_CON_LAB06.md](docs/INTEGRAR_CON_LAB06.md), con una pantalla Android y cliente HTTP [listos para copiar](ejemplos/android-lab06/README.md).
 - **Peticiones HTTP:** [peticiones.http](peticiones.http), para IntelliJ o un cliente REST.
 - **Contexto para resolver compilación en otra PC:** [CONTEXTO_COMPILACION.md](CONTEXTO_COMPILACION.md).
 
 En IntelliJ IDEA abre **la carpeta completa o el `pom.xml` raíz**, impórtalo como Maven y selecciona JDK 17. No abras solamente un módulo. También puedes ejecutarlo desde terminal sin IDE.
 
-Este proyecto es un backend de práctica. La aplicación Android de Lab6 y su Firebase continúan siendo proyectos separados. Android 14 indica la versión del dispositivo; aquí la configuración de compilación depende de Java, Maven, Boot y Cloud.
+Este proyecto es un backend de práctica. La aplicación Android de Lab6 y su Firebase continúan siendo proyectos separados. La extensión opcional demuestra una llamada Android → Calculator → Addition sin cambiar las dependencias del Lab06. La guía también explica una propuesta de resumen de sesiones, que todavía no está implementada. Android 14 indica la versión del dispositivo; aquí la configuración de compilación depende de Java, Maven, Boot y Cloud.
 
 ## Compilar sin iniciar
 

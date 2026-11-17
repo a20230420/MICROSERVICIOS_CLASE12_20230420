@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mc_abrir">Probar microservicios</string>
+    <string name="mc_titulo">Prueba de microservicios</string>
+    <string name="mc_explicacion">Android envía dos enteros a Calculator. Calculator encuentra Addition en Eureka y le pide la suma.</string>
+    <string name="mc_numero_a">Primer número entero</string>
+    <string name="mc_numero_b">Segundo número entero</string>
+    <string name="mc_calcular">Sumar en el servidor</string>
+    <string name="mc_volver">Volver a mis sesiones</string>
+    <string name="mc_listo">Inicia el backend en la PC y pulsa el botón.</string>
+    <string name="mc_enteros">Escribe dos enteros entre -2147483648 y 2147483647.</string>
+    <string name="mc_consultando">Consultando al servidor…</string>
+    <string name="mc_error">No se completó la consulta: %1$s</string>
+</resources>
